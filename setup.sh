@@ -1,27 +1,23 @@
 #!/bin/bash
 
+# Stop on error
+set -e
+
+# Check for Python 3.11 and install if necessary (this step might need modification based on your OS)
+# apt-get install python3.11  # Example for Debian/Ubuntu
+
 # Create a Python virtual environment
-python3.11 -m venv env
+if [ ! -d "env" ]; then
+    python3 -m venv env
+else
+    echo "Virtual environment already exists."
+fi
 
 # activate the virtual environment
 source env/bin/activate
 
-# Install required dependencies
+# Upgrade pip and install required dependencies
 pip install --upgrade pip
-pip install numpy
-pip install librosa
-pip install matplotlib
-pip install sklearn
-pip install midi2audio
-pip install pretty_midi
-pip install tensorflow
-pip install sounddevice
-pip install keyboard
-pip install scipy
-pip install argparse
-pip install tqdm
+pip install numpy librosa matplotlib scikit-learn midi2audio pretty_midi tensorflow sounddevice pynput scipy argparse tqdm
 
 echo "All project dependencies installed."
-
-# activate the virtual environment
-source env/bin/activate

@@ -1,7 +1,5 @@
 import sounddevice as sd
-import keyboard
 import numpy as np
-import tensorflow as tf
 from scipy.io.wavfile import write
 import os
 from tensorflow.keras.losses import SparseCategoricalCrossentropy
@@ -74,9 +72,11 @@ def main():
     
     model = load_model(MODEL_FILENAME)
     print("Welcome to PerfectPitch.ai!")
-    print("Press the spacebar to record for 5 seconds or the escape key to quit...")
+    print("Press 'r' and Enter to record for 5 seconds, or 'q' and Enter to quit...")
+
     while True:
-        if keyboard.is_pressed('space'):
+        command = input("Enter command: ").strip().lower()
+        if command == 'r':
             recording = record_audio(DURATION, SAMPLE_RATE)
             write(RECORDING_FILENAME, SAMPLE_RATE, recording)
             chroma = create_chromagram(RECORDING_FILENAME, sr=SAMPLE_RATE)
@@ -85,10 +85,7 @@ def main():
             if args.chromagram:
                 plot_chromagram(chroma)
             os.remove(RECORDING_FILENAME)
-            print()
-            print("Press the spacebar to record again or the escape key to quit...")
-        elif keyboard.is_pressed('esc'):  # Checks for the escape key press
-            print()
+        elif command == 'q':
             print("Exiting the program. Goodbye!")
             break
 
