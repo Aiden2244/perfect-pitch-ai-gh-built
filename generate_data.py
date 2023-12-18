@@ -1,80 +1,95 @@
-import os
+import tkinter as tk
+import threading
+import simpleaudio as sa
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-import librosa
-from tqdm import tqdm
-import warnings
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import librosa.display
+import os
+from test_model import *
 
-AUDIO_DIR = './data/audio'
-SAMPLE_RATE = 22050
-DURATION = 5  # duration of your audio files in seconds
-HOP_LENGTH = 512  # hop length for the spectrogram
-SAMPLES_PER_TRACK = SAMPLE_RATE * DURATION
-MAX_FRAMES = 600
+class PerfectPitchAIApp:
+    def __init__(self, root):
+        self.root = root
+        root.title("Perfect Pitch.AI")
+        root.geometry("800x600") 
 
-notes = ["c", "db", "d", "eb", "e", "f", "gb", "g", "ab", "a", "bb", "b"]
-le = LabelEncoder()
-le.fit(notes)
+        self.model = load_model(MODEL_FILENAME)
 
-def get_chromagram(file_path, sr=None, hop_length=512, n_fft=2048):
-    wav, sr = librosa.load(file_path, sr=sr)
-    if wav.shape[0]<2:
-        wav = np.pad(wav, int(np.ceil((2-wav.shape[0])/2)), mode='reflect')
-    chroma = librosa.feature.chroma_stft(y=wav, sr=sr, hop_length=hop_length, n_fft=n_fft)
-    chroma = np.pad(chroma, ((0, 0), (0, MAX_FRAMES - chroma.shape[1])), mode='constant')
-    return chroma
+        # Welcome Label
+        self.welcome_label = tk.Label(root, text="Welcome to Perfect Pitch.AI")
+        self.welcome_label.pack(pady=10)
 
-X = []
-y = []
+        # Record Button
+        self.record_button = tk.Button(root, text="Record", command=self.start_recording)
+        self.record_button.pack(pady=10)
 
-print("Processing audio files...")
+        # Recording Status Label
+        self.status_label = tk.Label(root, text="")
+        self.status_label.pack()
 
-total_files = sum([len(files) for r, d, files in os.walk(AUDIO_DIR)])
-pbar = tqdm(total=total_files)
+        # Predicted Pitch Label
+        self.pitch_label = tk.Label(root, text="")
+        self.pitch_label.pack(pady=10)
 
-logfile = './logs/data_log.txt'
-log = open(logfile, 'w')
+        # Chromagram Plot
+        self.fig, self.ax = plt.subplots(figsize=(6, 3))
+        self.canvas = FigureCanvasTkAgg(self.fig, master=root)
+        self.canvas_widget = self.canvas.get_tk_widget()
+        self.canvas_widget.pack(fill=tk.BOTH, expand=True)
 
-for root, dirs, files in os.walk(AUDIO_DIR):
-    for name in files:
-        if name.endswith('.wav'):
-            filepath = os.path.join(root, name)
-            # inside your loop
-            try:
-                with warnings.catch_warnings(record=True) as w:
-                    warnings.simplefilter("always")  # Catch all warnings
-                    chroma = get_chromagram(filepath, sr=SAMPLE_RATE)
-                    X.append(chroma)
-                    y.append(le.transform([name.split('-')[0]]))
-                    for warning in w:
-                        log.write(f'Warning when processing file {filepath}: {str(warning.message)}\n')
-            except Exception as e:
-                print(f"Could not process file {filepath}: {str(e)}")
-            pbar.update()
+        # Playback Button (simplified without slider)
+        self.playback_button = tk.Button(root, text="Play Audio", command=self.toggle_playback, state='disabled')
+        self.playback_button.pack(pady=5)
+        self.playback_thread = None
+        self.playback_wave_obj = None
+        self.is_playing = False
 
-log.close()
-            
-pbar.close()
+    def start_recording(self):
+        self.status_label.config(text="Recording...")
+        self.record_button.config(state='disabled')
+        threading.Thread(target=self.record_and_predict).start()
 
-X = np.array(X)
-y = np.array(y)
-print(f"X shape: {X.shape}")
-print(f"y shape: {y.shape}")
+    def record_and_predict(self):
+        recording = record_audio(DURATION, SAMPLE_RATE)
+        write(RECORDING_FILENAME, SAMPLE_RATE, recording)
+        chroma = create_chromagram(RECORDING_FILENAME, sr=SAMPLE_RATE)
+        pitch = predict_pitch(self.model, chroma)
+        pitch_text = f"Predicted pitch: {PITCHES[pitch[0]]}"
+        self.pitch_label.config(text=pitch_text)
 
-X = X / np.amax(np.abs(X))
+        self.ax.clear()
+        librosa.display.specshow(chroma, x_axis='time', y_axis='chroma', cmap='coolwarm', ax=self.ax)
+        self.ax.set_title('Chromagram')
+        self.ax.set_yticks(np.arange(12))
+        # Change labels to flat notes
+        self.ax.set_yticklabels(['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'])
+        self.canvas.draw()
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        self.status_label.config(text="")
+        self.record_button.config(state='normal')
+        self.playback_button.config(state='normal')
 
-X_train = np.expand_dims(X_train, axis=-1)
-X_test = np.expand_dims(X_test, axis=-1)
+    def toggle_playback(self):
+            self.playback_thread = threading.Thread(target=self.playback_recording)
+            self.playback_thread.start()
 
-print(f"X_train shape: {X_train.shape}")
-print(f"X_test shape: {X_test.shape}")
-print(f"y_train shape: {y_train.shape}")
-print(f"y_test shape: {y_test.shape}")
+    def playback_recording(self):
+        try:
+            self.playback_wave_obj = sa.WaveObject.from_wave_file(RECORDING_FILENAME)
+            play_obj = self.playback_wave_obj.play()
+            play_obj.wait_done()
+        except Exception as e:
+            print(f"Error during playback: {e}")
 
-# Save to disk
-np.savez('./data/data_arrays', X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test)
-print("Numpy arrays saved successfully!")
+    def on_closing(self):
+        if os.path.exists(RECORDING_FILENAME):
+            os.remove(RECORDING_FILENAME)
+        self.root.destroy()
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = PerfectPitchAIApp(root)
+    root.protocol("WM_DELETE_WINDOW", app.on_closing)
+    root.mainloop()
 

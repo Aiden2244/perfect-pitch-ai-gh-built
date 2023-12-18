@@ -18,6 +18,6 @@ source env/bin/activate
 
 # Upgrade pip and install required dependencies
 pip install --upgrade pip
-pip install numpy librosa matplotlib scikit-learn midi2audio pretty_midi tensorflow sounddevice pynput scipy argparse tqdm
+pip install numpy librosa matplotlib scikit-learn midi2audio pretty_midi tensorflow sounddevice pynput scipy argparse tqdm simpleaudio
 
 echo "All project dependencies installed."

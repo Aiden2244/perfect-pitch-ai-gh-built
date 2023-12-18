@@ -34,10 +34,16 @@ MODEL_FILENAME = './models/my_model_weights.keras'
 
 def record_audio(duration, sample_rate):
     print("Recording...")
-    recording = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1)
-    sd.wait()  # wait until recording is finished
+    recording = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='float32')
+    sd.wait()  # Wait until recording is finished
     print("Recording complete.")
-    return recording
+
+    # Convert the recording from float32 to int16
+    recording_int16 = (recording * 32767).astype('int16')
+    return recording_int16
+
+
+
 
 
 def predict_pitch(model, chroma):
