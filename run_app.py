@@ -22,7 +22,7 @@ class PerfectPitchAIApp:
         self.subtext_font = tk.font.Font(family="Roboto", size=20, weight="bold")
         
         # Welcome Label
-        self.welcome_label = tk.Label(root, text="Welcome to Perfect Pitch.AI", font=self.welcome_label_font)
+        self.welcome_label = tk.Label(root, text="Welcome to Perfect Pitch.AI", font =self.welcome_label_font)
         self.welcome_label.pack(pady=10)
 
         # Record Button
@@ -61,8 +61,12 @@ class PerfectPitchAIApp:
 
     def record_and_predict(self):
         recording = record_audio(DURATION, SAMPLE_RATE)
-        write(RECORDING_FILENAME, SAMPLE_RATE, recording)
-        chroma = create_chromagram(RECORDING_FILENAME, sr=SAMPLE_RATE)
+        write(FLOAT_RECORDING_FILENAME, SAMPLE_RATE, recording)
+        
+        int_recording = convert_recording_to_int(recording)
+        write(INT_RECORDING_FILENAME, SAMPLE_RATE, int_recording)
+        
+        chroma = create_chromagram(FLOAT_RECORDING_FILENAME, sr=SAMPLE_RATE)
         pitch = predict_pitch(self.model, chroma)
         pitch_text = f"Predicted pitch: {PITCHES[pitch[0]]}"
         self.pitch_label.config(text=pitch_text)
@@ -86,7 +90,7 @@ class PerfectPitchAIApp:
 
     def playback_recording(self):
         try:
-            self.playback_wave_obj = sa.WaveObject.from_wave_file(RECORDING_FILENAME)
+            self.playback_wave_obj = sa.WaveObject.from_wave_file(INT_RECORDING_FILENAME)
             play_obj = self.playback_wave_obj.play()
             play_obj.wait_done()
         except Exception as e:
@@ -96,8 +100,10 @@ class PerfectPitchAIApp:
     def on_closing(self):
         for thread in self.active_threads:
             thread.join()
-        if os.path.exists(RECORDING_FILENAME):
-            os.remove(RECORDING_FILENAME)
+        if os.path.exists(FLOAT_RECORDING_FILENAME):
+            os.remove(FLOAT_RECORDING_FILENAME)
+        if os.path.exists(INT_RECORDING_FILENAME):
+            os.remove(INT_RECORDING_FILENAME)
         self.root.destroy()
         exit()
 

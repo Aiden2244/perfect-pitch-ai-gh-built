@@ -29,7 +29,8 @@ DURATION = 5  # duration of the recording in seconds
 HOP_LENGTH = 512  # hop length for the spectrogram
 SAMPLES_PER_TRACK = SAMPLE_RATE * DURATION
 MAX_FRAMES = 512
-RECORDING_FILENAME = 'recording.wav'
+FLOAT_RECORDING_FILENAME = 'recording.wav'
+INT_RECORDING_FILENAME = 'int-recording.wav'
 MODEL_FILENAME = './models/my_model_weights.keras'
 
 def record_audio(duration, sample_rate):
@@ -37,14 +38,15 @@ def record_audio(duration, sample_rate):
     recording = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='float32')
     sd.wait()  # Wait until recording is finished
     print("Recording complete.")
+    
+    return recording
 
+    
+
+def convert_recording_to_int(recording):
     # Convert the recording from float32 to int16
     recording_int16 = (recording * 32767).astype('int16')
     return recording_int16
-
-
-
-
 
 def predict_pitch(model, chroma):
     # Add an extra dimension to match model's input shape
@@ -84,13 +86,19 @@ def main():
         command = input("Enter command: ").strip().lower()
         if command == 'r':
             recording = record_audio(DURATION, SAMPLE_RATE)
-            write(RECORDING_FILENAME, SAMPLE_RATE, recording)
-            chroma = create_chromagram(RECORDING_FILENAME, sr=SAMPLE_RATE)
+            write(FLOAT_RECORDING_FILENAME, SAMPLE_RATE, recording)
+            
+            int_recording = convert_recording_to_int(recording)
+            write(INT_RECORDING_FILENAME, SAMPLE_RATE, int_recording)
+            
+            chroma = create_chromagram(FLOAT_RECORDING_FILENAME, sr=SAMPLE_RATE)
             pitch = predict_pitch(model, chroma)
+            
             print(f"Predicted pitch: {PITCHES[pitch[0]]}")
             if args.chromagram:
                 plot_chromagram(chroma)
-            os.remove(RECORDING_FILENAME)
+            os.remove(FLOAT_RECORDING_FILENAME)
+            os.remove(INT_RECORDING_FILENAME)
         elif command == 'q':
             print("Exiting the program. Goodbye!")
             break
